@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VeloWorld — ride prototype</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app">
+      <section class="hud" aria-label="Ride metrics">
+        <div class="brand"><span class="mark">V</span><span>VELO<span>WORLD</span></span></div>
+        <div class="metrics">
+          <div><small>POWER</small><strong id="power">145</strong><em>W</em></div>
+          <div><small>SPEED</small><strong id="speed">0.0</strong><em>km/h</em></div>
+          <div><small>GRADE</small><strong id="grade">0.0</strong><em>%</em></div>
+        </div>
+        <div class="ride-data">
+          <p><span>RIDE TIME</span><b id="time">00:00</b></p>
+          <p><span>DISTANCE</span><b id="distance">0.00 km</b></p>
+          <p><span>ELEVATION</span><b id="elevation">0 m</b></p>
+        </div>
+      </section>
+
+      <aside class="control-panel">
+        <div class="route-label"><i></i>Hillside Loop <span>8.4 km</span></div>
+        <label for="power-slider">Simulated power <output id="slider-output">145 W</output></label>
+        <input id="power-slider" type="range" min="0" max="550" value="145" />
+        <div class="actions">
+          <button id="ble-button">Connect power meter</button>
+          <button id="pause-button" class="secondary">Pause</button>
+          <button id="export-button" class="secondary">Export TCX</button>
+        </div>
+        <p id="physics" class="physics">Physics: calculating…</p>
+        <p id="connection-status" class="status">Simulation active · adjust the power slider to ride</p>
+      </aside>
+      <div id="scene" aria-label="3D cycling route"></div>
+      <div class="hint">Drag to look around · Scroll to zoom</div>
+    </main>
+    <script type="module" src="./app.js?v=3"></script>
+  </body>
+</html>
