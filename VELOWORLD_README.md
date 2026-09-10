@@ -10,6 +10,15 @@ Open `index.html` from a local web server (for example, `python3 -m http.server 
 - Web Bluetooth Cycling Power support (standard service `0x1818`), plus a usable simulated-power fallback
 - Per-second ride logging and TCX download suitable for manual Strava upload
 
+## Code layout
+
+- `app.js` — application startup, render loop, camera, and simulation coordination
+- `src/route.js` — route geometry, terrain heights, and grade calculation
+- `src/world.js` — terrain, road, and scenery construction
+- `src/rider.js` — bike/rider model and pedaling animation
+- `src/physics.js` — power-to-speed model
+- `src/ui.js` — HUD updates, controls, Bluetooth input, and TCX export
+
 ## Hardware note
 
 Bluetooth power meters can connect in Chrome/Edge over HTTPS or localhost. ANT+ is not available to ordinary browser JavaScript; a production ANT+ implementation needs a native companion (for example Electron plus an ANT USB-dongle library) that forwards power events to this UI.
