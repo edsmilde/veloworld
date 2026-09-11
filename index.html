@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VeloWorld — ride prototype</title>
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./style.css?v=3" />
     <script type="importmap">
       {
         "imports": {
@@ -30,7 +30,12 @@
       </section>
 
       <aside class="control-panel">
-        <div class="route-label"><i></i>Hillside Loop <span>8.4 km</span></div>
+        <div class="route-label"><i></i><span id="route-name">Alpine Pass</span><small>8.4 km</small></div>
+        <a class="builder-link" href="./builder.html">Open World Builder ↗</a>
+        <input id="custom-world-file" type="file" accept="application/json,.json" hidden />
+        <button id="import-world-button" class="secondary import-world">Import custom world</button>
+        <label for="world-select">World</label>
+        <select id="world-select" aria-label="Choose world"></select>
         <label for="power-slider">Simulated power <output id="slider-output">145 W</output></label>
         <input id="power-slider" type="range" min="0" max="550" value="145" />
         <div class="actions">
@@ -44,6 +49,6 @@
       <div id="scene" aria-label="3D cycling route"></div>
       <div class="hint">Drag to look around · Scroll to zoom</div>
     </main>
-    <script type="module" src="./app.js?v=10"></script>
+    <script type="module" src="./app.js?v=28"></script>
   </body>
 </html>

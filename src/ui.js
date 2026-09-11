@@ -28,6 +28,51 @@ export function createUI() {
   };
 }
 
+export function bindWorldPicker(worlds, selectedWorld, customWorld) {
+  const picker = byId('world-select');
+  if (customWorld) {
+    const option = document.createElement('option');
+    option.value = 'custom';
+    option.textContent = customWorld.name;
+    option.selected = selectedWorld.id === 'custom';
+    picker.append(option);
+  }
+  Object.entries(worlds).forEach(([id, world]) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = world.label;
+    option.selected = id === selectedWorld.id;
+    picker.append(option);
+  });
+  byId('route-name').textContent = selectedWorld.label;
+  picker.addEventListener('change', () => {
+    const url = new URL(location.href);
+    url.searchParams.set('world', picker.value);
+    location.assign(url);
+  });
+}
+
+export function bindCustomWorldImport() {
+  const input = byId('custom-world-file');
+  const button = byId('import-world-button');
+  const status = byId('connection-status');
+  button.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const [file] = input.files;
+    if (!file) return;
+    try {
+      const { saveCustomWorld } = await import('./custom-world.js?v=6');
+      saveCustomWorld(JSON.parse(await file.text()));
+      const url = new URL(location.href);
+      url.searchParams.set('world', 'custom');
+      location.assign(url);
+    } catch (error) {
+      status.textContent = `Could not import world: ${error.message}`;
+      input.value = '';
+    }
+  });
+}
+
 export function renderRideMetrics(ui, state, grade) {
   ui.power.textContent = Math.round(state.watts);
   ui.speed.textContent = (state.speed * 3.6).toFixed(1);

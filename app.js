@@ -1,17 +1,21 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-import { calculateTargetSpeed } from './src/physics.js';
-import { createRider, updateRider } from './src/rider.js';
-import { getRoutePose, routeHeight, VISUAL_DISTANCE_SCALE } from './src/route.js';
-import { bindControls, createRideState, createUI, renderRideMetrics } from './src/ui.js';
-import { buildWorld } from './src/world.js';
+import { calculateTargetSpeed } from './src/physics.js?v=2';
+import { createRider, updateRider } from './src/rider.js?v=2';
+import { createRoute, VISUAL_DISTANCE_SCALE } from './src/route.js?v=9';
+import { bindControls, bindCustomWorldImport, bindWorldPicker, createRideState, createUI, renderRideMetrics } from './src/ui.js?v=3';
+import { buildWorld } from './src/world.js?v=12';
+import { getSelectedWorld, WORLDS } from './src/worlds.js?v=7';
+import { loadCustomWorld } from './src/custom-world.js?v=6';
 
 const ui = createUI();
 const state = createRideState();
+const world = getSelectedWorld();
+const route = createRoute(world);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#91c9dd');
-scene.fog = new THREE.Fog('#91c9dd', 90, 370);
+scene.background = new THREE.Color(world.sky);
+scene.fog = new THREE.Fog(world.fog, 90, 370);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -39,11 +43,11 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
 
-buildWorld(scene);
+buildWorld(scene, route, world);
 const riderRig = createRider();
 scene.add(riderRig.rider);
 
-const startingPose = getRoutePose(0);
+const startingPose = route.getPose(0);
 controls.target.copy(startingPose.position)
   .add(startingPose.tangent.clone().multiplyScalar(7))
   .add(new THREE.Vector3(0, 1.2, 0));
@@ -77,13 +81,13 @@ function updateCamera(pose) {
 }
 
 let lastFrame = performance.now();
-let lastElevation = routeHeight(0);
+let lastElevation = route.heightAt(0);
 
 function animate(now) {
   requestAnimationFrame(animate);
   const deltaTime = Math.min((now - lastFrame) / 1000, 0.05);
   lastFrame = now;
-  let pose = getRoutePose(state.distance);
+  let pose = route.getPose(state.distance);
 
   if (!state.paused) {
     const result = calculateTargetSpeed(state.watts, pose.grade);
@@ -92,8 +96,8 @@ function animate(now) {
     state.distance += state.speed * deltaTime;
     state.elapsed += deltaTime;
 
-    const elevation = routeHeight(state.distance * VISUAL_DISTANCE_SCALE);
-    state.elevationGain += Math.max(0, elevation - lastElevation);
+    const elevation = route.heightAt(state.distance * VISUAL_DISTANCE_SCALE);
+    state.elevationGain += Math.max(0, elevation - lastElevation) * route.elevationMetersPerSceneUnit;
     lastElevation = elevation;
     if (now - state.lastSample > 1000) {
       recordSample();
@@ -101,7 +105,7 @@ function animate(now) {
     }
   }
 
-  pose = getRoutePose(state.distance);
+  pose = route.getPose(state.distance);
   updateRider(riderRig, pose, state.speed, state.watts, state.elapsed, deltaTime);
   updateCamera(pose);
   renderRideMetrics(ui, state, pose.grade);
@@ -115,4 +119,6 @@ addEventListener('resize', () => {
 });
 
 bindControls(state, ui);
+bindCustomWorldImport();
+bindWorldPicker(WORLDS, world, loadCustomWorld());
 animate(performance.now());

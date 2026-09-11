@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VeloWorld — World Builder</title>
+    <link rel="stylesheet" href="./builder.css?v=1" />
+  </head>
+  <body>
+    <main class="builder-shell">
+      <header>
+        <a href="./index.html" class="back">← Ride app</a>
+        <div><p class="eyebrow">VELO WORLD</p><h1>World Builder</h1></div>
+        <div class="header-actions"><button id="save-button" class="quiet">Save locally</button><button id="export-button">Download world JSON</button></div>
+      </header>
+
+      <section class="workspace">
+        <aside class="tools">
+          <h2>1. Draw the route</h2>
+          <p>Click grid cells in order. Consecutive points are connected into the route.</p>
+          <div class="mode-group" role="group" aria-label="Editor mode">
+            <button class="mode active" data-mode="route">Route</button>
+            <button class="mode" data-mode="elevation">Elev. brush</button>
+            <button class="mode" data-mode="scenery">Scenery</button>
+            <button class="mode" data-mode="hill">Hill stamp</button>
+            <button class="mode" data-mode="smooth">Smooth</button>
+          </div>
+          <button id="undo-route" class="quiet full">Undo last route point</button>
+          <button id="clear-route" class="quiet full danger">Clear route</button>
+          <button id="clear-world" class="quiet full danger">Clear everything</button>
+
+          <h2>2. Shape the land</h2>
+          <label for="elevation">Brush / hill peak elevation <output id="elevation-output">0 m</output></label>
+          <input id="elevation" type="range" min="-100" max="100" step="1" value="0" />
+          <label for="hill-size">Hill stamp size</label>
+          <select id="hill-size"><option value="3">3 × 3 cells</option><option value="4">4 × 4 cells</option><option value="5" selected>5 × 5 cells</option><option value="7">7 × 7 cells</option></select>
+          <p class="hint">Elevation brush paints the chosen value. Hill stamp creates a graduated hill or valley with the chosen peak. Smooth averages terrain around each click. Grid blocks are about 50 m across.</p>
+
+          <h2>3. Add scenery</h2>
+          <label for="scenery">Place on selected cell</label>
+          <select id="scenery">
+            <option value="none">None / erase</option>
+            <option value="pine">Pine tree</option>
+            <option value="palm">Palm tree</option>
+            <option value="cactus">Cactus</option>
+            <option value="farm">Hay bale</option>
+            <option value="villa">Mediterranean villa</option>
+            <option value="house">Suburban house</option>
+          </select>
+          <p class="hint">Select a cell in Scenery mode to place the chosen item.</p>
+        </aside>
+
+        <section class="map-card">
+          <div class="map-toolbar"><span id="mode-label">Route mode</span><span id="selected-label">No cell selected</span></div>
+          <canvas id="grid" width="864" height="576" aria-label="Editable world grid"></canvas>
+          <p class="legend"><i class="route-key"></i>Route <i class="elevation-key"></i>Higher terrain <span>Tip: close the route by selecting its first point again.</span></p>
+        </section>
+
+        <aside class="details">
+          <h2>World settings</h2>
+          <label for="world-name">World name</label><input id="world-name" value="My Custom World" />
+          <label for="route-name">Route name</label><input id="route-name" value="New Loop" />
+          <label for="world-theme">Base theme</label>
+          <select id="world-theme"><option>Alpine</option><option>Desert</option><option>Tropical</option><option>Farmland</option><option>Mediterranean</option><option>Suburban</option></select>
+          <hr />
+          <h2>Build summary</h2>
+          <dl><div><dt>Route points</dt><dd id="route-count">0</dd></div><div><dt>Scenery placed</dt><dd id="scenery-count">0</dd></div><div><dt>Elevation range</dt><dd id="elevation-range">0–0 m</dd></div></dl>
+          <p class="future">Download this portable world file, then choose “Import custom world” in the ride app to play it. A 3D builder preview can come next.</p>
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="./builder.js?v=3"></script>
+  </body>
+</html>

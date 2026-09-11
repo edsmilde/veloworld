@@ -15,6 +15,7 @@ Open `index.html` from a local web server (for example, `python3 -m http.server 
 - `app.js` — application startup, render loop, camera, and simulation coordination
 - `src/route.js` — route geometry, terrain heights, and grade calculation
 - `src/world.js` — terrain, road, and scenery construction
+- `src/worlds.js` — selectable world definitions, palettes, and loop routes
 - `src/rider.js` — bike/rider model and pedaling animation
 - `src/physics.js` — power-to-speed model
 - `src/ui.js` — HUD updates, controls, Bluetooth input, and TCX export
