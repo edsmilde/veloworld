@@ -35,7 +35,7 @@ export function createRoute(world) {
 }
 
 function createCustomRoute(world) {
-  const controls = world.routePoints.map((point) => new THREE.Vector3(point.x, 0, point.z));
+  const controls = createRoundedControls(world.routePoints);
   const segmentLengths = controls.map((start, index) => start.distanceTo(controls[(index + 1) % controls.length]));
   const routeLength = segmentLengths.reduce((total, length) => total + length, 0);
   const pointAtDistance = (distance) => {
@@ -70,4 +70,35 @@ function createCustomRoute(world) {
       return { position, tangent, grade: rawGrade };
     },
   };
+}
+
+function createRoundedControls(routePoints) {
+  const corners = routePoints.map((point) => new THREE.Vector3(point.x, 0, point.z));
+  const radius = 11;
+  const cornerData = corners.map((corner, index) => {
+    const previous = corners[(index - 1 + corners.length) % corners.length];
+    const next = corners[(index + 1) % corners.length];
+    const incomingLength = corner.distanceTo(previous);
+    const outgoingLength = corner.distanceTo(next);
+    const offset = Math.min(radius, incomingLength * 0.28, outgoingLength * 0.28);
+    return {
+      center: corner,
+      entry: corner.clone().lerp(previous, offset / incomingLength),
+      exit: corner.clone().lerp(next, offset / outgoingLength),
+    };
+  });
+
+  const rounded = [cornerData[0].exit.clone()];
+  for (let index = 1; index <= cornerData.length; index += 1) {
+    const corner = cornerData[index % cornerData.length];
+    rounded.push(corner.entry.clone());
+    for (let step = 1; step <= 4; step += 1) {
+      const progress = step / 4;
+      const fromEntry = corner.entry.clone().lerp(corner.center, progress);
+      const fromCenter = corner.center.clone().lerp(corner.exit, progress);
+      rounded.push(fromEntry.lerp(fromCenter, progress));
+    }
+  }
+  rounded.pop();
+  return rounded;
 }

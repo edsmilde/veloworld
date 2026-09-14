@@ -7,23 +7,26 @@ function createLimb(length, radius, material) {
 }
 
 function createLeg(rider, side, kitMaterial, darkMaterial) {
+  const upperLength = 0.72;
+  const lowerLength = 0.67;
   const hip = new THREE.Group();
   hip.position.set(side * 0.23, 1.28, 0.08);
-  hip.add(createLimb(0.72, 0.14, darkMaterial));
+  hip.add(createLimb(upperLength, 0.14, darkMaterial));
 
   const knee = new THREE.Group();
-  knee.position.y = -0.7;
-  knee.add(createLimb(0.67, 0.11, darkMaterial));
+  knee.position.y = -upperLength;
+  knee.add(createLimb(lowerLength, 0.11, darkMaterial));
   hip.add(knee);
 
   const shoe = new THREE.Mesh(
     new THREE.BoxGeometry(0.18, 0.12, 0.42),
     new THREE.MeshStandardMaterial({ color: '#f1f2ed' }),
   );
-  shoe.position.set(0, -0.69, 0.12);
+  // The rear of the shoe (heel) meets the ankle; the toe points forward (-Z).
+  shoe.position.set(0, -lowerLength, -0.18);
   knee.add(shoe);
   rider.add(hip);
-  return { hip, knee, shoe };
+  return { hip, knee, shoe, upperLength, lowerLength };
 }
 
 function createArm(rider, side, kitMaterial, skinMaterial) {
@@ -46,6 +49,9 @@ function createArm(rider, side, kitMaterial, skinMaterial) {
 
 export function createRider() {
   const rider = new THREE.Group();
+  const body = new THREE.Group();
+  body.position.y = 0.12;
+  rider.add(body);
   const kitMaterial = new THREE.MeshStandardMaterial({ color: '#f15f4e', roughness: 0.55 });
   const darkMaterial = new THREE.MeshStandardMaterial({ color: '#172127' });
   const skinMaterial = new THREE.MeshStandardMaterial({ color: '#e5a072' });
@@ -53,18 +59,18 @@ export function createRider() {
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.285, 0.9, 5, 10), kitMaterial);
   torso.position.set(0, 1.64, -0.08);
   torso.rotation.x = -0.68;
-  rider.add(torso);
+  body.add(torso);
 
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.245, 12, 10), skinMaterial);
   head.position.set(0, 2.35, -0.58);
-  rider.add(head);
+  body.add(head);
 
   const helmet = new THREE.Mesh(
     new THREE.SphereGeometry(0.27, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
     new THREE.MeshStandardMaterial({ color: '#f7f3e5', roughness: 0.4 }),
   );
   helmet.position.copy(head.position).add(new THREE.Vector3(0, 0.07, 0));
-  rider.add(helmet);
+  body.add(helmet);
 
   const bike = new THREE.Group();
   const wheelGeometry = new THREE.TorusGeometry(0.52, 0.045, 8, 18);
@@ -84,32 +90,58 @@ export function createRider() {
   handlebar.rotation.z = Math.PI / 2;
   handlebar.position.set(0, 1.24, -0.72);
   bike.add(handlebar);
+  const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.42), darkMaterial);
+  saddle.position.set(0, 1.16, 0.25);
+  bike.add(saddle);
   rider.add(bike);
 
-  const legs = [createLeg(rider, -1, kitMaterial, darkMaterial), createLeg(rider, 1, kitMaterial, darkMaterial)];
-  createArm(rider, -1, kitMaterial, skinMaterial);
-  createArm(rider, 1, kitMaterial, skinMaterial);
+  const legs = [createLeg(body, -1, kitMaterial, darkMaterial), createLeg(body, 1, kitMaterial, darkMaterial)];
+  createArm(body, -1, kitMaterial, skinMaterial);
+  createArm(body, 1, kitMaterial, skinMaterial);
   rider.traverse((object) => { object.castShadow = true; });
 
-  return { rider, bike, legs };
+  return { rider, bike, legs, pedalAngle: 0 };
 }
 
-export function updateRider(rig, pose, speed, watts, elapsed, deltaTime) {
+export function updateRider(rig, pose, speed, watts, elapsed, deltaTime, paused = false) {
   const { rider, bike, legs } = rig;
   rider.position.copy(pose.position).add(new THREE.Vector3(0, 0.34, 0));
-  rider.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), pose.tangent.clone().setY(0).normalize());
-  rider.rotateX(-Math.asin(pose.tangent.y));
+  const horizontalTangent = pose.tangent.clone().setY(0);
+  const horizontalLength = horizontalTangent.length();
+  if (horizontalLength > 0.0001) {
+    horizontalTangent.divideScalar(horizontalLength);
+    const yaw = Math.atan2(-horizontalTangent.x, -horizontalTangent.z);
+    const pitch = Math.atan2(pose.tangent.y, horizontalLength);
+    rider.rotation.set(0, yaw, 0);
+    rider.rotateX(pitch);
+  }
 
   bike.children.forEach((part) => {
     if (part.geometry?.type === 'TorusGeometry') part.rotation.z -= speed * deltaTime / 0.52;
   });
 
-  const cadence = (48 + watts * 0.18) * THREE.MathUtils.clamp(speed / 3.5, 0.2, 1);
-  const pedalAngle = elapsed * cadence * Math.PI / 30;
+  const cadence = THREE.MathUtils.clamp(55 + watts * 0.12, 55, 105);
+  if (!paused) rig.pedalAngle -= deltaTime * cadence * Math.PI / 30;
   legs.forEach((leg, index) => {
-    const phase = pedalAngle + index * Math.PI;
-    leg.hip.rotation.x = Math.sin(phase) * 0.72 - 0.22;
-    leg.knee.rotation.x = 0.42 - Math.sin(phase) * 0.82;
-    leg.shoe.rotation.x = -leg.knee.rotation.x * 0.4;
+    const phase = rig.pedalAngle + index * Math.PI;
+    const crankY = 0.56;
+    const crankZ = 0.06;
+    const crankRadius = 0.22;
+    const pedalY = crankY + Math.cos(phase) * crankRadius;
+    const pedalZ = crankZ + Math.sin(phase) * crankRadius;
+    const deltaY = pedalY - leg.hip.position.y;
+    const deltaZ = pedalZ - leg.hip.position.z;
+    const distance = THREE.MathUtils.clamp(Math.hypot(deltaY, deltaZ), 0.12, leg.upperLength + leg.lowerLength - 0.02);
+    const kneeAngle = -Math.acos(THREE.MathUtils.clamp(
+      (distance ** 2 - leg.upperLength ** 2 - leg.lowerLength ** 2) / (2 * leg.upperLength * leg.lowerLength),
+      -1,
+      1,
+    ));
+    const hipAngle = Math.atan2(-deltaZ, -deltaY)
+      - Math.atan2(leg.lowerLength * Math.sin(kneeAngle), leg.upperLength + leg.lowerLength * Math.cos(kneeAngle));
+    leg.hip.rotation.x = hipAngle;
+    leg.knee.rotation.x = kneeAngle;
+    // Counter-rotate the two leg joints so shoes remain nearly level.
+    leg.shoe.rotation.x = -hipAngle - kneeAngle + 0.08;
   });
 }

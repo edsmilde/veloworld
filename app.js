@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 import { calculateTargetSpeed } from './src/physics.js?v=2';
-import { createRider, updateRider } from './src/rider.js?v=2';
-import { createRoute, VISUAL_DISTANCE_SCALE } from './src/route.js?v=9';
+import { createRider, updateRider } from './src/rider.js?v=6';
+import { createRoute, VISUAL_DISTANCE_SCALE } from './src/route.js?v=10';
 import { bindControls, bindCustomWorldImport, bindWorldPicker, createRideState, createUI, renderRideMetrics } from './src/ui.js?v=3';
 import { buildWorld } from './src/world.js?v=12';
 import { getSelectedWorld, WORLDS } from './src/worlds.js?v=7';
@@ -82,6 +82,7 @@ function updateCamera(pose) {
 
 let lastFrame = performance.now();
 let lastElevation = route.heightAt(0);
+updateRider(riderRig, startingPose, 0, state.watts, 0, 0, true);
 
 function animate(now) {
   requestAnimationFrame(animate);
@@ -106,7 +107,7 @@ function animate(now) {
   }
 
   pose = route.getPose(state.distance);
-  updateRider(riderRig, pose, state.speed, state.watts, state.elapsed, deltaTime);
+  updateRider(riderRig, pose, state.speed, state.watts, state.elapsed, deltaTime, state.paused);
   updateCamera(pose);
   renderRideMetrics(ui, state, pose.grade);
   renderer.render(scene, camera);
