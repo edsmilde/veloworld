@@ -1,4 +1,17 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+// Material names are shared with the editable Blender source.
+export function setRiderColors(rig, colors) {
+  rig.colors = { ...rig.colors, ...colors };
+  rig.model?.traverse((object) => {
+    if (!object.isMesh) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach((material) => {
+      if (rig.colors[material.name]) material.color.set(rig.colors[material.name]);
+    });
+  });
+}
 
 function createLimb(length, radius, material) {
   const limb = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.86, radius, length, 8), material);
@@ -100,7 +113,25 @@ export function createRider() {
   createArm(body, 1, kitMaterial, skinMaterial);
   rider.traverse((object) => { object.castShadow = true; });
 
-  return { rider, bike, legs, pedalAngle: 0 };
+  const rig = { rider, bike, legs, pedalAngle: 0, colors: {}, model: null };
+  rig.ready = new GLTFLoader().loadAsync(new URL('../assets/road-cyclist.glb', import.meta.url).href)
+    .then((gltf) => {
+      rider.children.forEach((child) => { child.visible = false; });
+      rig.model = gltf.scene;
+      // Blender model uses meters: retain real-world rider and bicycle dimensions.
+      rig.model.scale.setScalar(1);
+      rig.model.traverse((object) => {
+        if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; }
+      });
+      rider.add(rig.model);
+      rig.mixer = new THREE.AnimationMixer(rig.model);
+      gltf.animations.forEach((clip) => rig.mixer.clipAction(clip).play());
+      rig.wheels = ['RearWheel', 'FrontWheel'].map((name) => rig.model.getObjectByName(name)).filter(Boolean);
+      setRiderColors(rig, rig.colors);
+      return rig;
+    })
+    .catch((error) => { console.warn('Cyclist asset could not load; using the original rider.', error); return rig; });
+  return rig;
 }
 
 export function updateRider(rig, pose, speed, watts, elapsed, deltaTime, paused = false) {
@@ -121,6 +152,13 @@ export function updateRider(rig, pose, speed, watts, elapsed, deltaTime, paused 
   });
 
   const cadence = THREE.MathUtils.clamp(55 + watts * 0.12, 55, 105);
+  if (rig.model) {
+    // GLB origin is the tire contact plane; road is 0.35 m above route points.
+    rider.position.copy(pose.position).add(new THREE.Vector3(0, .35, 0));
+    rig.mixer.update(paused ? 0 : deltaTime * cadence / 60);
+    if (!paused) rig.wheels.forEach((wheel) => { wheel.rotation.x -= speed * deltaTime / .35; });
+    return;
+  }
   if (!paused) rig.pedalAngle -= deltaTime * cadence * Math.PI / 30;
   legs.forEach((leg, index) => {
     const phase = rig.pedalAngle + index * Math.PI;

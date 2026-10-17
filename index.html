@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VeloWorld — ride prototype</title>
     <link rel="stylesheet" href="./style.css?v=3" />
+    <style>.control-hint{margin:-9px 0 14px;color:#aebdb8;font-size:10px;line-height:1.35}</style>
     <script type="importmap">
       {
         "imports": {
@@ -21,6 +22,7 @@
           <div><small>POWER</small><strong id="power">145</strong><em>W</em></div>
           <div><small>SPEED</small><strong id="speed">0.0</strong><em>km/h</em></div>
           <div><small>GRADE</small><strong id="grade">0.0</strong><em>%</em></div>
+          <div><small>HEART RATE</small><strong id="heart-rate">—</strong><em>bpm</em></div>
         </div>
         <div class="ride-data">
           <p><span>RIDE TIME</span><b id="time">00:00</b></p>
@@ -30,7 +32,7 @@
       </section>
 
       <aside class="control-panel">
-        <div class="route-label"><i></i><span id="route-name">Alpine Pass</span><small>8.4 km</small></div>
+        <div class="route-label"><i></i><span id="route-name">Alpine Pass</span><small id="route-length">— km</small></div>
         <a class="builder-link" href="./builder.html">Open World Builder ↗</a>
         <input id="custom-world-file" type="file" accept="application/json,.json" hidden />
         <button id="import-world-button" class="secondary import-world">Import custom world</button>
@@ -38,17 +40,33 @@
         <select id="world-select" aria-label="Choose world"></select>
         <label for="power-slider">Simulated power <output id="slider-output">145 W</output></label>
         <input id="power-slider" type="range" min="0" max="550" value="145" />
+        <label for="trainer-difficulty">Trainer difficulty <output id="trainer-difficulty-output">100%</output></label>
+        <input id="trainer-difficulty" type="range" min="0" max="100" value="100" />
+        <p class="control-hint">Difficulty scales hills; virtual gears adjust resistance separately.</p>
+        <div class="virtual-shifting" role="group" aria-label="Virtual shifting">
+          <div class="gear-buttons">
+            <button id="gear-easier" type="button" aria-label="Shift to easier gear">[ Easier</button>
+            <output id="gear-output" aria-live="polite">Gear 6 / 12</output>
+            <button id="gear-harder" type="button" aria-label="Shift to harder gear">Harder ]</button>
+          </div>
+          <p id="gear-resistance" class="control-hint"></p>
+          <p class="control-hint">Keyboard: [ easier · ] harder. Gear 6 is neutral. Shifts change trainer resistance, not simulated power.</p>
+        </div>
         <div class="actions">
           <button id="ble-button">Connect power meter</button>
+          <button id="trainer-button">Connect smart trainer</button>
+          <button id="heart-rate-button">Connect heart rate</button>
           <button id="pause-button" class="secondary">Pause</button>
           <button id="export-button" class="secondary">Export TCX</button>
         </div>
+        <p id="trainer-status" class="status">Trainer not connected · virtual resistance inactive</p>
+        <p id="heart-rate-status" class="status">Heart rate monitor not connected</p>
         <p id="physics" class="physics">Physics: calculating…</p>
         <p id="connection-status" class="status">Simulation active · adjust the power slider to ride</p>
       </aside>
       <div id="scene" aria-label="3D cycling route"></div>
       <div class="hint">Drag to look around · Scroll to zoom</div>
     </main>
-    <script type="module" src="./app.js?v=33"></script>
+    <script type="module" src="./app.js?v=51"></script>
   </body>
 </html>

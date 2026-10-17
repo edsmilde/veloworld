@@ -1,3 +1,7 @@
+import { connectSmartTrainer } from './trainer.js?v=2';
+import { NEUTRAL_GEAR } from './shifting.js';
+import { connectHeartRateMonitor, currentHeartRate } from './heart-rate.js';
+
 const byId = (id) => document.getElementById(id);
 
 export function createRideState() {
@@ -11,6 +15,12 @@ export function createRideState() {
     samples: [],
     lastSample: 0,
     connected: false,
+    trainer: null,
+    heartRateMonitor: null,
+    heartRate: null,
+    heartRateUpdatedAt: -Infinity,
+    trainerDifficulty: 1,
+    gear: NEUTRAL_GEAR,
     model: null,
   };
 }
@@ -18,12 +28,14 @@ export function createRideState() {
 export function createUI() {
   return {
     power: byId('power'),
+    heartRate: byId('heart-rate'),
     speed: byId('speed'),
     grade: byId('grade'),
     time: byId('time'),
     distance: byId('distance'),
     elevation: byId('elevation'),
     status: byId('connection-status'),
+    trainerStatus: byId('trainer-status'),
     physics: byId('physics'),
   };
 }
@@ -61,7 +73,7 @@ export function bindCustomWorldImport() {
     const [file] = input.files;
     if (!file) return;
     try {
-      const { saveCustomWorld } = await import('./custom-world.js?v=6');
+      const { saveCustomWorld } = await import('./custom-world.js?v=12');
       saveCustomWorld(JSON.parse(await file.text()));
       const url = new URL(location.href);
       url.searchParams.set('world', 'custom');
@@ -74,6 +86,7 @@ export function bindCustomWorldImport() {
 }
 
 export function renderRideMetrics(ui, state, grade) {
+  ui.heartRate.textContent = currentHeartRate(state) ?? '—';
   ui.power.textContent = Math.round(state.watts);
   ui.speed.textContent = (state.speed * 3.6).toFixed(1);
   ui.grade.textContent = grade.toFixed(1);
@@ -89,13 +102,43 @@ export function renderRideMetrics(ui, state, grade) {
   }
 }
 
-function downloadTCX(samples, state) {
+export function downloadTCX(samples, state) {
   const start = new Date(Date.now() - state.elapsed * 1000).toISOString();
-  const track = samples.map((sample) => `<Trackpoint><Time>${new Date(Date.parse(start) + sample.time * 1000).toISOString()}</Time><DistanceMeters>${sample.dist.toFixed(1)}</DistanceMeters><Extensions><TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2"><Watts>${sample.watts}</Watts><Speed>${sample.speed.toFixed(2)}</Speed></TPX></Extensions></Trackpoint>`).join('');
+  const track = samples.map((sample) => {
+    const hr = Number.isInteger(sample.heartRate) && sample.heartRate > 0 && sample.heartRate <= 255
+      ? `<HeartRateBpm><Value>${sample.heartRate}</Value></HeartRateBpm>` : '';
+    return `<Trackpoint><Time>${new Date(Date.parse(start) + sample.time * 1000).toISOString()}</Time><DistanceMeters>${sample.dist.toFixed(1)}</DistanceMeters>${hr}<Extensions><TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2"><Speed>${sample.speed.toFixed(2)}</Speed><Watts>${sample.watts}</Watts></TPX></Extensions></Trackpoint>`;
+  }).join('');
   return `<?xml version="1.0"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Biking"><Id>${start}</Id><Lap StartTime="${start}"><TotalTimeSeconds>${state.elapsed.toFixed(1)}</TotalTimeSeconds><DistanceMeters>${state.distance.toFixed(1)}</DistanceMeters><Track>${track}</Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
 }
 
 export function bindControls(state, ui) {
+  const heartButton = byId('heart-rate-button');
+  const heartStatus = byId('heart-rate-status');
+  heartButton.onclick = async () => {
+    if (state.heartRateMonitor) { state.heartRateMonitor.disconnect(); return; }
+    if (!navigator.bluetooth) {
+      heartStatus.textContent = 'Web Bluetooth unavailable — use Chrome, Edge, or enabled Brave at localhost.';
+      return;
+    }
+    heartButton.disabled = true;
+    heartStatus.textContent = 'Choose your Bluetooth heart rate monitor…';
+    try {
+      state.heartRateMonitor = await connectHeartRateMonitor({
+        onValue: bpm => { state.heartRate = bpm; state.heartRateUpdatedAt = performance.now(); },
+        onDisconnect: () => {
+          state.heartRateMonitor = null; state.heartRate = null;
+          heartButton.textContent = 'Connect heart rate';
+          heartStatus.textContent = 'Heart rate monitor disconnected.';
+        },
+      });
+      heartButton.textContent = 'Disconnect heart rate';
+      heartStatus.textContent = `${state.heartRateMonitor.name} connected · missing or stale readings display —`;
+    } catch (error) {
+      state.heartRateMonitor = null; state.heartRate = null;
+      heartStatus.textContent = error.name === 'NotFoundError' ? 'Heart rate connection cancelled.' : `Could not connect heart rate: ${error.message}`;
+    } finally { heartButton.disabled = false; }
+  };
   const slider = byId('power-slider');
   slider.addEventListener('input', () => {
     if (state.connected) return;
@@ -131,6 +174,35 @@ export function bindControls(state, ui) {
         ui.status.textContent = 'Bluetooth is disabled in this browser. Open VeloWorld in Chrome or Edge at localhost, then try again.';
       } else {
         ui.status.textContent = `Could not connect: ${error.message}`;
+      }
+    }
+  };
+
+  const trainerDifficulty = byId('trainer-difficulty');
+  trainerDifficulty.addEventListener('input', () => {
+    state.trainerDifficulty = Number(trainerDifficulty.value) / 100;
+    byId('trainer-difficulty-output').value = `${trainerDifficulty.value}%`;
+  });
+
+  byId('trainer-button').onclick = async () => {
+    if (!navigator.bluetooth) {
+      ui.trainerStatus.textContent = 'Web Bluetooth is unavailable here — trainer control requires Chrome, Edge, or enabled Brave at localhost.';
+      return;
+    }
+    ui.trainerStatus.textContent = 'Choose your smart trainer…';
+    try {
+      state.trainer = await connectSmartTrainer({
+        onStatus: (message) => { ui.trainerStatus.textContent = message; },
+        onDisconnect: () => {
+          state.trainer = null;
+          ui.trainerStatus.textContent = 'Trainer disconnected · resistance control paused';
+        },
+      });
+    } catch (error) {
+      if (error.message?.toLowerCase().includes('globally disabled')) {
+        ui.trainerStatus.textContent = 'Bluetooth is disabled in this browser. Open VeloWorld in Chrome, Edge, or enabled Brave at localhost.';
+      } else {
+        ui.trainerStatus.textContent = `Could not connect trainer: ${error.message}`;
       }
     }
   };

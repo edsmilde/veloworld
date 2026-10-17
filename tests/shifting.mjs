@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { trainerGrade, gearGradeOffset, bindVirtualShifting } from '../src/shifting.js';
+
+assert.equal(trainerGrade(8, 1, 6), 8);
+assert.equal(trainerGrade(8, .5, 7), 4.5);
+assert.equal(trainerGrade(8, 0, 7), .5);
+assert.equal(trainerGrade(8, 1, 5), 7.5);
+assert.equal(trainerGrade(100, 1, 12), 16);
+assert.equal(trainerGrade(-100, 1, 1), -10);
+assert.equal(gearGradeOffset(6), 0);
+const elements = new Map();
+const root = { getElementById(id) {
+  if (!elements.has(id)) elements.set(id, { addEventListener(type, fn) { this[type] = fn; } });
+  return elements.get(id);
+} };
+const keyboard = { addEventListener(type, fn) { this[type] = fn; } };
+const state = { gear: 6, trainer: null, watts: 200, speed: 10 };
+const render = bindVirtualShifting(state, root, keyboard);
+const key = (value, extra = {}) => keyboard.keydown({ key: value, preventDefault() {}, ...extra });
+key(']'); assert.equal(state.gear, 7);
+key('['); assert.equal(state.gear, 6);
+key(']', { repeat: true }); assert.equal(state.gear, 6);
+key(']', { target: { closest: () => true } }); assert.equal(state.gear, 6);
+key(']', { ctrlKey: true }); assert.equal(state.gear, 6);
+for (let i = 0; i < 20; i++) key(']');
+assert.equal(state.gear, 12); assert.equal(elements.get('gear-harder').disabled, true);
+for (let i = 0; i < 20; i++) elements.get('gear-easier').click();
+assert.equal(state.gear, 1); assert.equal(elements.get('gear-easier').disabled, true);
+assert.equal(state.watts, 200); assert.equal(state.speed, 10);
+state.trainer = {}; render();
+assert.match(elements.get('gear-resistance').textContent, /trainer active/);
+console.log('Passed virtual gearing, difficulty, trainer limits, keyboard guards, buttons and power isolation.');

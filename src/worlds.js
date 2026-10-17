@@ -53,4 +53,4 @@ export function getSelectedWorld() {
   }
   return WORLDS[worldId] ? { id: worldId, ...WORLDS[worldId] } : { id: 'mountain', ...WORLDS.mountain };
 }
-import { createCustomWorld, loadCustomWorld } from './custom-world.js?v=6';
+import { createCustomWorld, loadCustomWorld } from './custom-world.js?v=12';

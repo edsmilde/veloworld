@@ -1,3 +1,5 @@
+import { plantOption, VALID_SCENERY } from './scenery-options.js?v=2';
+
 export const CUSTOM_WORLD_STORAGE_KEY = 'veloworld-custom-world';
 export const GRID_CELL_SIZE_METERS = 50;
 // Custom worlds use a direct scale: one value in the builder equals one meter
@@ -42,8 +44,13 @@ export function validateWorldDefinition(value) {
     const point = validatePoint(cell, grid);
     if (!point) return null;
     const elevation = Math.max(-100, Math.min(100, Number(cell.elevation) || 0));
-    const validScenery = ['none', 'pine', 'palm', 'cactus', 'farm', 'villa', 'house'];
-    return { ...point, elevation, scenery: validScenery.includes(cell.scenery) ? cell.scenery : 'none' };
+    const validGround = ['base', 'grass', 'rock', 'sand', 'dirt'];
+    return {
+      ...point,
+      elevation,
+      scenery: VALID_SCENERY.includes(cell.scenery) ? cell.scenery : 'none',
+      ground: validGround.includes(cell.ground) ? cell.ground : 'base',
+    };
   }).filter(Boolean);
 
   return {
@@ -79,6 +86,22 @@ function cellPosition(cell, grid) {
   return { x: (cell.column - (grid.columns - 1) / 2) * spacing, z: (cell.row - (grid.rows - 1) / 2) * spacing };
 }
 
+function forestRandom(cell, index) {
+  const value = Math.sin((cell.column + 1) * 127.1 + (cell.row + 1) * 311.7 + index * 74.7) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function forestTrees(cell, grid, scenery) {
+  const center = cellPosition(cell, grid);
+  const { type, count } = plantOption(scenery);
+  return Array.from({ length: count }, (_, index) => ({
+    scenery: type,
+    x: center.x + (forestRandom(cell, index) - .5) * GRID_CELL_SIZE_METERS * .82,
+    z: center.z + (forestRandom(cell, index + 29) - .5) * GRID_CELL_SIZE_METERS * .82,
+    scale: .65 + forestRandom(cell, index + 57) * .55,
+  }));
+}
+
 function buildHeightFunction(definition) {
   const heights = new Map(definition.cells.map((cell) => [`${cell.column},${cell.row}`, cell.elevation * ELEVATION_SCENE_SCALE]));
   const { columns, rows } = definition.grid;
@@ -95,13 +118,34 @@ function buildHeightFunction(definition) {
   };
 }
 
+function buildGroundFunction(definition) {
+  const grounds = new Map(definition.cells.map((cell) => [`${cell.column},${cell.row}`, cell.ground]));
+  const { columns, rows } = definition.grid;
+  return (x, z) => {
+    const rawColumn = x / GRID_CELL_SIZE_METERS + (columns - 1) / 2;
+    const rawRow = z / GRID_CELL_SIZE_METERS + (rows - 1) / 2;
+    if (rawColumn < -.5 || rawColumn > columns - .5 || rawRow < -.5 || rawRow > rows - .5) return 'base';
+    const column = Math.round(rawColumn);
+    const row = Math.round(rawRow);
+    return grounds.get(`${column},${row}`) || 'base';
+  };
+}
+
 export function createCustomWorld(definition) {
   const palette = THEME_PALETTES[definition.theme.toLowerCase()] || THEME_PALETTES.alpine;
   const terrain = buildHeightFunction(definition);
+  const groundAt = buildGroundFunction(definition);
   return {
-    id: 'custom', label: definition.routeName, ...palette, terrain,
+    id: 'custom', label: definition.routeName, ...palette, terrain, groundAt,
     elevationMetersPerSceneUnit: 1 / ELEVATION_SCENE_SCALE,
-    customScenery: definition.cells.filter((cell) => cell.scenery !== 'none').map((cell) => ({ ...cell, ...cellPosition(cell, definition.grid) })),
+    groundPatches: definition.cells
+      .filter((cell) => cell.ground !== 'base')
+      .map((cell) => ({ ...cell, ...cellPosition(cell, definition.grid) })),
+    customScenery: definition.cells.filter((cell) => cell.scenery !== 'none').flatMap((cell) => (
+      (plantOption(cell.scenery)?.count || 0) > 1
+        ? forestTrees(cell, definition.grid, cell.scenery)
+        : [{ ...cell, ...cellPosition(cell, definition.grid) }]
+    )),
     routePoints: definition.route.map((cell) => cellPosition(cell, definition.grid)),
   };
 }

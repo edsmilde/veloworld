@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VeloWorld — World Builder</title>
     <link rel="stylesheet" href="./builder.css?v=1" />
+    <style>
+      .tool-panel { display: none; border-top: 1px solid rgba(255, 255, 255, .12); margin-top: 15px; padding-top: 16px; }
+      .tool-panel.active { display: block; }
+      .scenery-palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 8px; }
+      .scenery-choice { min-height: 58px; padding: 6px 3px; background: rgba(255, 255, 255, .08); color: #dce8e0; display: grid; place-items: center; gap: 2px; }
+      .scenery-choice.active { outline: 2px solid #acd96f; background: rgba(172, 217, 111, .18); color: #f4ffd9; }
+      .scenery-icon { font-size: 23px; line-height: 1; }
+      .plant-heading { grid-column: 1 / -1; font-size: 12px; font-weight: 700; margin-top: 6px; }
+      .scenery-name { font-size: 9px; font-weight: 700; line-height: 1.1; text-align: center; }
+    </style>
   </head>
   <body>
     <main class="builder-shell">
@@ -16,38 +26,85 @@
 
       <section class="workspace">
         <aside class="tools">
-          <h2>1. Draw the route</h2>
-          <p>Click grid cells in order. Consecutive points are connected into the route.</p>
+          <h2>Builder tools</h2>
           <div class="mode-group" role="group" aria-label="Editor mode">
             <button class="mode active" data-mode="route">Route</button>
             <button class="mode" data-mode="elevation">Elev. brush</button>
+            <button class="mode" data-mode="ground">Ground</button>
             <button class="mode" data-mode="scenery">Scenery</button>
             <button class="mode" data-mode="hill">Hill stamp</button>
             <button class="mode" data-mode="smooth">Smooth</button>
           </div>
-          <button id="undo-route" class="quiet full">Undo last route point</button>
-          <button id="clear-route" class="quiet full danger">Clear route</button>
+
+          <section class="tool-panel active" data-mode-panel="route">
+            <h2>Draw the route</h2>
+            <p>Click grid cells in order. Consecutive points are connected into the route.</p>
+            <button id="undo-route" class="quiet full">Undo last route point</button>
+            <button id="clear-route" class="quiet full danger">Clear route</button>
+          </section>
+
+          <section class="tool-panel" data-mode-panel="elevation">
+            <h2>Elevation brush</h2>
+            <label for="elevation">Set block elevation <output id="elevation-output">0 m</output></label>
+            <input id="elevation" type="range" min="-100" max="100" step="1" value="0" />
+            <p class="hint">Paint the chosen elevation onto each clicked grid block.</p>
+          </section>
+
+          <section class="tool-panel" data-mode-panel="scenery">
+            <h2>Add scenery</h2>
+            <p id="scenery-label" class="hint">Pine tree — click a block to place</p>
+            <details open><summary>Plants</summary>
+            <div class="scenery-palette" role="group" aria-label="Scenery to place">
+              <button class="scenery-choice active" data-scenery="pine" title="Pine tree" aria-label="Pine tree"><span class="scenery-icon">▲</span><span class="scenery-name">Pine</span></button>
+              <button class="scenery-choice" data-scenery="pine-forest" title="Pine forest" aria-label="Pine forest"><span class="scenery-icon">▲▲</span><span class="scenery-name">Pine forest</span></button>
+              <button class="scenery-choice" data-scenery="deciduous" title="Deciduous tree" aria-label="Deciduous tree"><span class="scenery-icon">●</span><span class="scenery-name">Deciduous</span></button>
+              <button class="scenery-choice" data-scenery="deciduous-forest" title="Deciduous forest" aria-label="Deciduous forest"><span class="scenery-icon">●●</span><span class="scenery-name">Leaf forest</span></button>
+              <button class="scenery-choice" data-scenery="palm" title="Palm tree" aria-label="Palm tree"><span class="scenery-icon">♣</span><span class="scenery-name">Palm</span></button>
+              <button class="scenery-choice" data-scenery="cactus" title="Cactus" aria-label="Cactus"><span class="scenery-icon">†</span><span class="scenery-name">Cactus</span></button>
+              <button class="scenery-choice" data-scenery="farm" title="Hay bale" aria-label="Hay bale"><span class="scenery-icon">●</span><span class="scenery-name">Hay bale</span></button>
+              <button class="scenery-choice" data-scenery="villa" title="Mediterranean villa" aria-label="Mediterranean villa"><span class="scenery-icon">⌂</span><span class="scenery-name">Villa</span></button>
+              <button class="scenery-choice" data-scenery="house" title="Suburban house" aria-label="Suburban house"><span class="scenery-icon">⌂</span><span class="scenery-name">House</span></button>
+              <button class="scenery-choice" data-scenery="none" title="Erase scenery" aria-label="Erase scenery"><span class="scenery-icon">×</span><span class="scenery-name">Erase</span></button>
+            </div>
+            <p class="hint">One (1), Few (5), or Dense (14) per block. Plants on the road are omitted.</p>
+            </details>
+            <details open><summary>Buildings</summary>
+              <div id="building-palette" class="scenery-palette" role="group" aria-label="Buildings to place"></div>
+              <p class="hint">Paint route tiles to line both sides with road-facing buildings. Tight bends may fit fewer.</p>
+            </details>
+            <details><summary>Other / erase</summary>
+              <div id="other-scenery-palette" class="scenery-palette" role="group" aria-label="Other scenery"></div>
+            </details>
+          </section>
+
+          <section class="tool-panel" data-mode-panel="ground">
+            <h2>Paint ground</h2>
+            <p id="ground-label" class="hint">Grass — click a block to paint</p>
+            <div class="scenery-palette ground-palette" role="group" aria-label="Ground material to paint">
+              <button class="scenery-choice ground-choice active" data-ground="grass" title="Grass" aria-label="Grass"><span class="scenery-icon">✦</span><span class="scenery-name">Grass</span></button>
+              <button class="scenery-choice ground-choice" data-ground="rock" title="Rock" aria-label="Rock"><span class="scenery-icon">◆</span><span class="scenery-name">Rock</span></button>
+              <button class="scenery-choice ground-choice" data-ground="sand" title="Sand" aria-label="Sand"><span class="scenery-icon">≈</span><span class="scenery-name">Sand</span></button>
+              <button class="scenery-choice ground-choice" data-ground="dirt" title="Dirt" aria-label="Dirt"><span class="scenery-icon">●</span><span class="scenery-name">Dirt</span></button>
+              <button class="scenery-choice ground-choice" data-ground="base" title="Restore base theme ground" aria-label="Restore base theme ground"><span class="scenery-icon">↺</span><span class="scenery-name">Restore</span></button>
+            </div>
+            <p class="hint">Ground paint changes the terrain material for the entire 50 × 50 m block without changing its elevation or scenery.</p>
+          </section>
+
+          <section class="tool-panel" data-mode-panel="hill">
+            <h2>Hill stamp</h2>
+            <label for="hill-elevation">Peak elevation <output id="hill-elevation-output">0 m</output></label>
+            <input id="hill-elevation" type="range" min="-100" max="100" step="1" value="0" />
+            <label for="hill-size">Hill stamp size</label>
+            <select id="hill-size"><option value="3">3 × 3 cells</option><option value="4">4 × 4 cells</option><option value="5" selected>5 × 5 cells</option><option value="7">7 × 7 cells</option></select>
+            <p class="hint">The clicked block becomes the peak; outer rings blend from their current heights toward it.</p>
+          </section>
+
+          <section class="tool-panel" data-mode-panel="smooth">
+            <h2>Smooth terrain</h2>
+            <p class="hint">Click and drag to select a rectangle. Every block in it is smoothed together from the original elevations of its surrounding blocks.</p>
+          </section>
+
           <button id="clear-world" class="quiet full danger">Clear everything</button>
-
-          <h2>2. Shape the land</h2>
-          <label for="elevation">Brush / hill peak elevation <output id="elevation-output">0 m</output></label>
-          <input id="elevation" type="range" min="-100" max="100" step="1" value="0" />
-          <label for="hill-size">Hill stamp size</label>
-          <select id="hill-size"><option value="3">3 × 3 cells</option><option value="4">4 × 4 cells</option><option value="5" selected>5 × 5 cells</option><option value="7">7 × 7 cells</option></select>
-          <p class="hint">Elevation brush paints the chosen value. Hill stamp creates a graduated hill or valley with the chosen peak. Smooth averages terrain around each click. Grid blocks are about 50 m across.</p>
-
-          <h2>3. Add scenery</h2>
-          <label for="scenery">Place on selected cell</label>
-          <select id="scenery">
-            <option value="none">None / erase</option>
-            <option value="pine">Pine tree</option>
-            <option value="palm">Palm tree</option>
-            <option value="cactus">Cactus</option>
-            <option value="farm">Hay bale</option>
-            <option value="villa">Mediterranean villa</option>
-            <option value="house">Suburban house</option>
-          </select>
-          <p class="hint">Select a cell in Scenery mode to place the chosen item.</p>
         </aside>
 
         <section class="map-card">
@@ -69,6 +126,6 @@
         </aside>
       </section>
     </main>
-    <script type="module" src="./builder.js?v=3"></script>
+    <script type="module" src="./builder.js?v=8"></script>
   </body>
 </html>
