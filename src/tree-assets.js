@@ -9,7 +9,7 @@ function variationAt(x, z, salt) {
 }
 
 // Geometry and materials are shared by clones; each variant is fetched once.
-export function loadTreeInto(container, type, x, z, scale) {
+export function loadTreeInto(container, type, x, z, scale, yaw) {
   const variant = 1 + Math.floor(variationAt(x, z, 1) * 3);
   const key = `${type}-${variant}`;
   if (!templates.has(key)) {
@@ -18,7 +18,7 @@ export function loadTreeInto(container, type, x, z, scale) {
   return templates.get(key).then((gltf) => {
     const tree = gltf.scene.clone(true);
     tree.scale.setScalar(scale);
-    tree.rotation.y = variationAt(x, z, 2) * Math.PI * 2;
+    tree.rotation.y = yaw ?? variationAt(x, z, 2) * Math.PI * 2;
     tree.traverse((object) => {
       if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; }
     });

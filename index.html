@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VeloWorld — ride prototype</title>
-    <link rel="stylesheet" href="./style.css?v=3" />
+    <link rel="stylesheet" href="./style.css?v=4" />
     <style>.control-hint{margin:-9px 0 14px;color:#aebdb8;font-size:10px;line-height:1.35}</style>
     <script type="importmap">
       {
@@ -31,7 +31,9 @@
         </div>
       </section>
 
-      <aside class="control-panel">
+      <button id="menu-show" class="menu-show" type="button" aria-controls="ride-menu" aria-expanded="false" hidden>Show menu</button>
+      <aside id="ride-menu" class="control-panel" aria-label="Ride controls">
+        <button id="menu-hide" class="menu-hide secondary" type="button" aria-controls="ride-menu" aria-expanded="true">Hide menu ×</button>
         <div class="route-label"><i></i><span id="route-name">Alpine Pass</span><small id="route-length">— km</small></div>
         <a class="builder-link" href="./builder.html">Open World Builder ↗</a>
         <input id="custom-world-file" type="file" accept="application/json,.json" hidden />
@@ -67,6 +69,6 @@
       <div id="scene" aria-label="3D cycling route"></div>
       <div class="hint">Drag to look around · Scroll to zoom</div>
     </main>
-    <script type="module" src="./app.js?v=51"></script>
+    <script type="module" src="./app.js?v=56"></script>
   </body>
 </html>

@@ -3,15 +3,17 @@ import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/exampl
 import { calculateTargetSpeed } from './src/physics.js?v=2';
 import { createRider, updateRider } from './src/rider.js?v=8';
 import { createRoute } from './src/route.js?v=11';
-import { bindControls, bindCustomWorldImport, bindWorldPicker, createRideState, createUI, renderRideMetrics } from './src/ui.js?v=8';
+import { bindControls, bindCustomWorldImport, bindWorldPicker, createRideState, createUI, renderRideMetrics } from './src/ui.js?v=10';
 import { currentHeartRate } from './src/heart-rate.js';
+import { bindMenu } from './src/menu.js';
 import { bindVirtualShifting } from './src/shifting.js';
-import { buildWorld } from './src/world.js?v=28';
-import { getSelectedWorld, WORLDS } from './src/worlds.js?v=9';
-import { loadCustomWorld } from './src/custom-world.js?v=12';
+import { buildWorld } from './src/world.js?v=32';
+import { getSelectedWorld, WORLDS } from './src/worlds.js?v=11';
+import { loadCustomWorld } from './src/custom-world.js?v=14';
 
 const ui = createUI();
 const state = createRideState();
+bindMenu();
 const renderShifting = bindVirtualShifting(state);
 const world = getSelectedWorld();
 const route = createRoute(world);

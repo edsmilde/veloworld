@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { loadTreeInto } from './tree-assets.js?v=1';
+import { loadTreeInto } from './tree-assets.js?v=2';
 import { loadBuildingInto } from './building-assets.js';
 import { nearestRoad, roadsideBuildings } from './building-placement.js';
-import { BUILDING_TYPES } from './scenery-options.js?v=2';
+import { BUILDING_TYPES } from './scenery-options.js?v=4';
+import { gradeTerrainAlongRoad } from './road-terrain.js?v=2';
 
 const ROAD_HALF_WIDTH = 3.1;
 // Raised above the terrain mesh enough to stay visible on steep, detailed land.
@@ -10,7 +11,7 @@ const ROAD_HALF_WIDTH = 3.1;
 const ROAD_SURFACE_OFFSET = 0.35;
 const GROUND_COLORS = { grass: '#6f9259', rock: '#88847a', sand: '#d6b36c', dirt: '#8d5c3b' };
 const TERRAIN_HALF_SIZE = 450;
-const TERRAIN_SEGMENTS = 120;
+const TERRAIN_SEGMENTS = 600;
 const TERRAIN_STEP = (TERRAIN_HALF_SIZE * 2) / TERRAIN_SEGMENTS;
 
 function createTerrainTexture(world) {
@@ -164,7 +165,7 @@ function createRoadTexture(color) {
 }
 
 function addTerrain(scene, world) {
-  const segments = 120;
+  const segments = TERRAIN_SEGMENTS;
   const vertices = [];
   const uvs = [];
   const indices = [];
@@ -227,44 +228,53 @@ function addRoad(scene, route, world) {
   road.receiveShadow = true;
   scene.add(road);
 
-  // The asphalt is a thin ribbon raised above a coarser terrain mesh. Give it
-  // solid sides down into that *rendered* terrain, not just the height function.
-  // Use a conservative shared bottom per segment so an intervening valley
-  // cannot expose a crack between sparsely sampled skirt vertices.
+  // A terrain-colored collar joins the exact road edge to the graded land.
+  // It covers sub-grid interpolation differences without vertical retaining walls.
   const fillVertices = [];
-  const fillUVs = [];
+  const fillColors = [];
   const addFillTriangle = (a, b, c) => {
     fillVertices.push(...a, ...b, ...c);
-    for (const p of [a, b, c]) fillUVs.push(p.x / 8, p.y / 8);
+    for (const p of [a, b, c]) {
+      const type = world.groundAt?.(p.x, p.z);
+      const color = new THREE.Color(GROUND_COLORS[type] || world.ground);
+      fillColors.push(color.r, color.g, color.b);
+    }
   };
   for (let index = 0; index < route.points.length - 1; index += 1) {
     const leftA = new THREE.Vector3().fromArray(vertices, index * 6);
     const rightA = new THREE.Vector3().fromArray(vertices, index * 6 + 3);
     const leftB = new THREE.Vector3().fromArray(vertices, (index + 1) * 6);
     const rightB = new THREE.Vector3().fromArray(vertices, (index + 1) * 6 + 3);
-    let bottom = Math.min(leftA.y, leftB.y) - 1;
-    const samples = Math.max(2, Math.ceil(leftA.distanceTo(leftB) / .5));
-    for (let sample = 0; sample <= samples; sample += 1) {
-      for (const [a, b] of [[leftA, leftB], [rightA, rightB]]) {
-        const p = a.clone().lerp(b, sample / samples);
-        bottom = Math.min(bottom, terrainHeightOnBaseMesh(world, p.x, p.z) - 1);
+    const centerA = leftA.clone().lerp(rightA,.5);
+    const centerB = leftB.clone().lerp(rightB,.5);
+    for (const [a, b] of [[leftA, leftB], [rightA, rightB]]) {
+      const outwardA=a.clone().sub(centerA).normalize();
+      const outwardB=b.clone().sub(centerB).normalize();
+      const shoulderPoint = (edge, outward, distance) => {
+        const p=edge.clone().addScaledVector(outward,distance);
+        const ground = terrainHeightOnBaseMesh(world,p.x,p.z)+.03;
+        // Small asphalt lip (~3 cm), then a smooth shoulder; never let a
+        // locally higher grass triangle pull the inner shoulder over the road.
+        const blend = Math.min(1,distance/4);
+        p.y = (edge.y-.03)*(1-blend) + Math.min(ground,edge.y-.03+distance)*(blend);
+        return p;
+      };
+      for (let step=0;step<8;step++) {
+        const innerA=shoulderPoint(a,outwardA,step*.5), innerB=shoulderPoint(b,outwardB,step*.5);
+        const outerA=shoulderPoint(a,outwardA,(step+1)*.5), outerB=shoulderPoint(b,outwardB,(step+1)*.5);
+        addFillTriangle(innerA,outerA,innerB);
+        addFillTriangle(innerB,outerA,outerB);
       }
-    }
-    for (const [a, b] of [[leftA, leftB], [rightB, rightA]]) {
-      const lowA = new THREE.Vector3(a.x, bottom, a.z);
-      const lowB = new THREE.Vector3(b.x, bottom, b.z);
-      addFillTriangle(a, lowA, b);
-      addFillTriangle(b, lowA, lowB);
     }
   }
   const fillGeometry = new THREE.BufferGeometry();
   fillGeometry.setAttribute('position', new THREE.Float32BufferAttribute(fillVertices, 3));
-  fillGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(fillUVs, 2));
+  fillGeometry.setAttribute('color', new THREE.Float32BufferAttribute(fillColors, 3));
   fillGeometry.computeVertexNormals();
   const fill = new THREE.Mesh(fillGeometry, new THREE.MeshStandardMaterial({
-    color: '#716b5d', roughness: 1, side: THREE.DoubleSide,
+    vertexColors: true, roughness: 1, side: THREE.DoubleSide,
   }));
-  fill.name = 'Road embankment';
+  fill.name = 'Graded road shoulders';
   fill.receiveShadow = true;
   scene.add(fill);
 
@@ -373,11 +383,11 @@ function house(scene, world, x, z, scale, yaw = 0) {
 }
 
 function extraPlant(type) {
-  return (scene, world, x, z, scale) => {
+  return (scene, world, x, z, scale, yaw) => {
     const group = new THREE.Group();
     const fallback = new THREE.Mesh(new THREE.SphereGeometry(.8, 8, 6), new THREE.MeshStandardMaterial({ color: '#416a35' }));
     fallback.position.y = .8; group.add(fallback);
-    place(scene, group, world, x, z); loadTreeInto(group, type, x, z, scale);
+    place(scene, group, world, x, z); loadTreeInto(group, type, x, z, scale, yaw);
   };
 }
 
@@ -412,6 +422,8 @@ function addScenery(scene, world, route) {
   if (world.customScenery) {
     const customMakers = { pine, deciduous, cactus, palm, farm, villa, house,
       shrub: extraPlant('shrub'), flowers: extraPlant('flowers'),
+      grape: extraPlant('grape'),
+      sunflower: extraPlant('sunflower'),
       cottage: extraBuilding('cottage'), barn: extraBuilding('barn') };
     const occupied = [];
     world.customScenery.forEach((item) => {
@@ -421,7 +433,7 @@ function addScenery(scene, world, route) {
         occupied.push(...buildings);
         return;
       }
-      if (!isNearRoad(route, item.x, item.z)) customMakers[item.scenery](scene, world, item.x, item.z, item.scale ?? (item.scenery === 'villa' || item.scenery === 'house' ? 1 : 1.15));
+      if (!isNearRoad(route, item.x, item.z)) customMakers[item.scenery](scene, world, item.x, item.z, item.scale ?? (item.scenery === 'villa' || item.scenery === 'house' ? 1 : 1.15), item.yaw);
     });
     return;
   }
@@ -443,6 +455,9 @@ function addScenery(scene, world, route) {
 }
 
 export function buildWorld(scene, route, world) {
+  // Keep route/physics elevations unchanged; grade only the rendered landscape
+  // and scenery foundations to meet the road surface.
+  world = gradeTerrainAlongRoad(world, route.points, ROAD_HALF_WIDTH, ROAD_SURFACE_OFFSET);
   addTerrain(scene, world);
   addGroundPatches(scene, world);
   addRoad(scene, route, world);

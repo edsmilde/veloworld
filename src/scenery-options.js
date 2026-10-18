@@ -1,4 +1,4 @@
-export const PLANT_TYPES = ['pine', 'deciduous', 'palm', 'cactus', 'shrub', 'flowers'];
+export const PLANT_TYPES = ['pine', 'deciduous', 'palm', 'cactus', 'shrub', 'flowers', 'grape', 'sunflower'];
 export const BUILDING_TYPES = ['villa', 'house', 'cottage', 'barn'];
 
 // Retain -forest identifiers for compatibility with existing saved worlds.
@@ -8,5 +8,5 @@ export function plantOption(scenery) {
   return { type, count: density === 'forest' ? 14 : density === 'few' ? 5 : 1 };
 }
 
-export const VALID_SCENERY = ['none', 'farm', ...BUILDING_TYPES,
+export const VALID_SCENERY = ['none', 'farm', 'vineyard', 'sunflower-field', ...BUILDING_TYPES,
   ...PLANT_TYPES.flatMap((type) => [type, `${type}-few`, `${type}-forest`])];

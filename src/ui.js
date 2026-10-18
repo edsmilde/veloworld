@@ -73,7 +73,7 @@ export function bindCustomWorldImport() {
     const [file] = input.files;
     if (!file) return;
     try {
-      const { saveCustomWorld } = await import('./custom-world.js?v=12');
+      const { saveCustomWorld } = await import('./custom-world.js?v=14');
       saveCustomWorld(JSON.parse(await file.text()));
       const url = new URL(location.href);
       url.searchParams.set('world', 'custom');

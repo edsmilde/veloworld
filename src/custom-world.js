@@ -1,4 +1,6 @@
-import { plantOption, VALID_SCENERY } from './scenery-options.js?v=2';
+import { plantOption, VALID_SCENERY } from './scenery-options.js?v=4';
+import { vineyardLayout } from './vineyard.js';
+import { sunflowerFieldLayout } from './sunflower-field.js';
 
 export const CUSTOM_WORLD_STORAGE_KEY = 'veloworld-custom-world';
 export const GRID_CELL_SIZE_METERS = 50;
@@ -142,7 +144,12 @@ export function createCustomWorld(definition) {
       .filter((cell) => cell.ground !== 'base')
       .map((cell) => ({ ...cell, ...cellPosition(cell, definition.grid) })),
     customScenery: definition.cells.filter((cell) => cell.scenery !== 'none').flatMap((cell) => (
-      (plantOption(cell.scenery)?.count || 0) > 1
+      ['vineyard', 'sunflower-field'].includes(cell.scenery)
+        ? (cell.scenery === 'vineyard' ? vineyardLayout() : sunflowerFieldLayout()).map(p => {
+          const center = cellPosition(cell, definition.grid);
+          return { scenery: cell.scenery === 'vineyard' ? 'grape' : 'sunflower', x: center.x + p.x, z: center.z + p.z, scale: 1, yaw: 0 };
+        })
+        : (plantOption(cell.scenery)?.count || 0) > 1
         ? forestTrees(cell, definition.grid, cell.scenery)
         : [{ ...cell, ...cellPosition(cell, definition.grid) }]
     )),

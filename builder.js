@@ -1,4 +1,6 @@
-import { PLANT_TYPES, BUILDING_TYPES, plantOption } from './src/scenery-options.js?v=2';
+import { PLANT_TYPES, BUILDING_TYPES, plantOption } from './src/scenery-options.js?v=4';
+import { vineyardLayout } from './src/vineyard.js';
+import { sunflowerFieldLayout } from './src/sunflower-field.js';
 import { isRouteTile } from './src/building-placement.js';
 
 const GRID_COLUMNS = 18;
@@ -27,10 +29,14 @@ const sceneryLabels = {
   none: 'Erase scenery', pine: 'Pine tree', 'pine-forest': 'Pine forest', deciduous: 'Deciduous tree',
   'deciduous-forest': 'Deciduous forest', palm: 'Palm tree', cactus: 'Cactus', farm: 'Hay bale', villa: 'Mediterranean villa', house: 'Suburban house',
 };
+scenerySymbols.grape = '♣'; scenerySymbols.vineyard = '≋';
+sceneryLabels.vineyard = 'Vineyard rows';
+scenerySymbols.sunflower = '✺'; scenerySymbols['sunflower-field'] = '✺';
+sceneryLabels['sunflower-field'] = 'Sunflower field';
 sceneryLabels.cottage = 'Country cottage';
 sceneryLabels.barn = 'Farm barn';
 for (const type of PLANT_TYPES) {
-  const name = type[0].toUpperCase() + type.slice(1);
+  const name = type === 'grape' ? 'Grapevine' : type[0].toUpperCase() + type.slice(1);
   sceneryLabels[type] = `${name} — One (1)`;
   sceneryLabels[`${type}-few`] = `${name} — Few (5)`;
   sceneryLabels[`${type}-forest`] = `${name} — Dense (14)`;
@@ -113,6 +119,16 @@ function drawRoute() {
 function drawScenery() {
   state.cells.forEach((cell) => {
     if (cell.scenery === 'none') return;
+    if (['vineyard', 'sunflower-field'].includes(cell.scenery)) {
+      context.fillStyle = cell.scenery === 'vineyard' ? '#385b27' : '#f4c52e';
+      const layout = cell.scenery === 'vineyard' ? vineyardLayout() : sunflowerFieldLayout();
+      for (const p of layout) {
+        const x = (cell.column + .5 + p.x / 50) * cellWidth;
+        const y = (cell.row + .5 + p.z / 50) * cellHeight;
+        context.fillRect(x - 1.5, y - 1, 3, 2);
+      }
+      return;
+    }
     const plant = plantOption(cell.scenery);
     if (plant && plant.count > 1) {
       drawForestPreview(cell, plant.type, plant.count);
@@ -384,6 +400,18 @@ for (const type of PLANT_TYPES) {
   }
 }
 sceneryPalette.prepend(plantButtons);
+const vineyardButton = document.createElement('button');
+vineyardButton.type = 'button'; vineyardButton.className = 'scenery-choice';
+vineyardButton.dataset.scenery = 'vineyard'; vineyardButton.title = 'Vineyard — five rows of ten grapevines per block';
+vineyardButton.textContent = '≋ Vineyard rows';
+vineyardButton.style.gridColumn = '1 / -1';
+sceneryPalette.append(vineyardButton);
+const sunflowerButton = document.createElement('button');
+sunflowerButton.type = 'button'; sunflowerButton.className = 'scenery-choice';
+sunflowerButton.dataset.scenery = 'sunflower-field';
+sunflowerButton.title = 'Sunflower field — twelve rows of twelve flowers per block';
+sunflowerButton.textContent = '✺ Sunflower field'; sunflowerButton.style.gridColumn = '1 / -1';
+sceneryPalette.append(sunflowerButton);
 setScenery(state.scenery);
 
 document.querySelectorAll('.scenery-choice[data-scenery]').forEach((button) => button.addEventListener('click', () => {
